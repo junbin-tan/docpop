@@ -320,8 +320,7 @@ export class DocumentGenerator {
         throw new Error('Invalid document type');
     }
 
-    const buffer = await Packer.toBuffer(doc);
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const blob = await Packer.toBlob(doc);
     saveAs(blob, filename);
   }
 
