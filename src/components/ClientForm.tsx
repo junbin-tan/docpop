@@ -3,13 +3,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ClientDetails } from '@/types/client';
 import { DocumentGenerator } from '@/lib/documentGenerator';
-import { FileText, Download, User, Mail, Phone, CreditCard } from 'lucide-react';
+import { FileText, Download, User, Mail, Phone, CreditCard, Package } from 'lucide-react';
 
 interface ClientFormProps {
   onDocumentsGenerated: (documents: string[]) => void;
 }
+
+const documentOptions = [
+  { id: 'warrant', name: 'Warrant to Act', description: 'Authorization letter' },
+  { id: 'consent', name: 'Medical Consent', description: 'Release of medical info' },
+  { id: 'demand', name: 'Letter of Demand', description: 'Claim initiation letter' },
+  { id: 'notice', name: 'Statutory Notice', description: 'Pre-litigation notice' },
+];
 
 export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
   const [clientDetails, setClientDetails] = useState<ClientDetails>({
@@ -19,6 +27,7 @@ export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
     identificationNumber: '',
   });
   
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errors, setErrors] = useState<Partial<ClientDetails>>({});
 
@@ -55,37 +64,48 @@ export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
     }
   };
 
+  const handleDocumentSelection = (documentId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDocuments(prev => [...prev, documentId]);
+    } else {
+      setSelectedDocuments(prev => prev.filter(id => id !== documentId));
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === documentOptions.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(documentOptions.map(doc => doc.id));
+    }
+  };
+
   const handleGenerateDocuments = async () => {
     if (!validateForm()) {
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      const generator = new DocumentGenerator(clientDetails);
-      const generatedDocs = await generator.generateAllDocuments();
-      onDocumentsGenerated(generatedDocs);
-    } catch (error) {
-      console.error('Error generating documents:', error);
-      alert('Error generating documents. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleGenerateSingleDocument = async (docType: string) => {
-    if (!validateForm()) {
+    if (selectedDocuments.length === 0) {
+      alert('Please select at least one document to generate.');
       return;
     }
 
     setIsGenerating(true);
     try {
       const generator = new DocumentGenerator(clientDetails);
-      await generator.generateDocument(docType);
-      onDocumentsGenerated([docType]);
+      
+      if (selectedDocuments.length === 1) {
+        // Generate single document
+        await generator.generateDocument(selectedDocuments[0]);
+        onDocumentsGenerated(selectedDocuments);
+      } else {
+        // Generate multiple documents as ZIP
+        await generator.generateDocumentsAsZip(selectedDocuments);
+        onDocumentsGenerated(selectedDocuments);
+      }
     } catch (error) {
-      console.error(`Error generating ${docType} document:`, error);
-      alert(`Error generating ${docType} document. Please try again.`);
+      console.error('Error generating documents:', error);
+      alert('Error generating documents. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -173,76 +193,68 @@ export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            Document Generation
+            Document Selection
           </CardTitle>
           <CardDescription>
-            Generate individual documents or all documents at once.
+            Select the documents you want to generate. Multiple documents will be packaged in a ZIP file.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <Button
+              onClick={handleSelectAll}
+              variant="outline"
+              size="sm"
+            >
+              {selectedDocuments.length === documentOptions.length ? 'Deselect All' : 'Select All'}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {selectedDocuments.length} of {documentOptions.length} selected
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button
-              onClick={() => handleGenerateSingleDocument('warrant')}
-              disabled={isGenerating}
-              variant="outline"
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <FileText className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-semibold">Warrant to Act</div>
-                <div className="text-sm text-muted-foreground">Authorization letter</div>
+            {documentOptions.map((doc) => (
+              <div key={doc.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                <Checkbox
+                  id={doc.id}
+                  checked={selectedDocuments.includes(doc.id)}
+                  onCheckedChange={(checked) => handleDocumentSelection(doc.id, checked as boolean)}
+                  className="mt-1"
+                />
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor={doc.id} className="cursor-pointer">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="h-4 w-4" />
+                      <span className="font-semibold">{doc.name}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{doc.description}</p>
+                  </Label>
+                </div>
               </div>
-            </Button>
-
-            <Button
-              onClick={() => handleGenerateSingleDocument('consent')}
-              disabled={isGenerating}
-              variant="outline"
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <FileText className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-semibold">Medical Consent</div>
-                <div className="text-sm text-muted-foreground">Release of medical info</div>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleGenerateSingleDocument('demand')}
-              disabled={isGenerating}
-              variant="outline"
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <FileText className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-semibold">Letter of Demand</div>
-                <div className="text-sm text-muted-foreground">Claim initiation letter</div>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleGenerateSingleDocument('notice')}
-              disabled={isGenerating}
-              variant="outline"
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <FileText className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-semibold">Statutory Notice</div>
-                <div className="text-sm text-muted-foreground">Pre-litigation notice</div>
-              </div>
-            </Button>
+            ))}
           </div>
 
           <div className="pt-4 border-t">
             <Button
               onClick={handleGenerateDocuments}
-              disabled={isGenerating}
+              disabled={isGenerating || selectedDocuments.length === 0}
               size="lg"
               className="w-full"
             >
-              <Download className="h-5 w-5 mr-2" />
-              {isGenerating ? 'Generating Documents...' : 'Generate All Documents'}
+              {selectedDocuments.length > 1 ? (
+                <Package className="h-5 w-5 mr-2" />
+              ) : (
+                <Download className="h-5 w-5 mr-2" />
+              )}
+              {isGenerating 
+                ? 'Generating Documents...' 
+                : selectedDocuments.length > 1 
+                  ? `Generate ${selectedDocuments.length} Documents (ZIP)`
+                  : selectedDocuments.length === 1
+                    ? 'Generate Document'
+                    : 'Select Documents to Generate'
+              }
             </Button>
           </div>
         </CardContent>

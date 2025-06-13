@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import { ClientDetails } from '@/types/client';
 
 export class DocumentGenerator {
@@ -295,50 +296,72 @@ export class DocumentGenerator {
     });
   }
 
-  async generateDocument(documentType: string): Promise<void> {
-    let doc: Document;
-    let filename: string;
-
+  private getDocumentByType(documentType: string): Document {
     switch (documentType) {
       case 'warrant':
-        doc = this.createWarrantToAct();
-        filename = `Warrant_to_Act_${this.clientDetails.name.replace(/\s+/g, '_')}.docx`;
-        break;
+        return this.createWarrantToAct();
       case 'consent':
-        doc = this.createConsentForMedicalInfo();
-        filename = `Medical_Consent_${this.clientDetails.name.replace(/\s+/g, '_')}.docx`;
-        break;
+        return this.createConsentForMedicalInfo();
       case 'demand':
-        doc = this.createLetterOfDemand();
-        filename = `Letter_of_Demand_${this.clientDetails.name.replace(/\s+/g, '_')}.docx`;
-        break;
+        return this.createLetterOfDemand();
       case 'notice':
-        doc = this.createStatutoryNotice();
-        filename = `Statutory_Notice_${this.clientDetails.name.replace(/\s+/g, '_')}.docx`;
-        break;
+        return this.createStatutoryNotice();
       default:
         throw new Error('Invalid document type');
     }
+  }
+
+  private getFilenameByType(documentType: string): string {
+    const clientName = this.clientDetails.name.replace(/\s+/g, '_');
+    
+    switch (documentType) {
+      case 'warrant':
+        return `Warrant_to_Act_${clientName}.docx`;
+      case 'consent':
+        return `Medical_Consent_${clientName}.docx`;
+      case 'demand':
+        return `Letter_of_Demand_${clientName}.docx`;
+      case 'notice':
+        return `Statutory_Notice_${clientName}.docx`;
+      default:
+        throw new Error('Invalid document type');
+    }
+  }
+
+  async generateDocument(documentType: string): Promise<void> {
+    const doc = this.getDocumentByType(documentType);
+    const filename = this.getFilenameByType(documentType);
 
     const blob = await Packer.toBlob(doc);
     saveAs(blob, filename);
   }
 
-  async generateAllDocuments(): Promise<string[]> {
-    const documentTypes = ['warrant', 'consent', 'demand', 'notice'];
-    const generatedDocs: string[] = [];
+  async generateDocumentsAsZip(documentTypes: string[]): Promise<void> {
+    const zip = new JSZip();
+    const clientName = this.clientDetails.name.replace(/\s+/g, '_');
 
     for (const docType of documentTypes) {
       try {
-        await this.generateDocument(docType);
-        generatedDocs.push(docType);
-        // Add a small delay between downloads to prevent browser blocking
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const doc = this.getDocumentByType(docType);
+        const filename = this.getFilenameByType(docType);
+        
+        const blob = await Packer.toBlob(doc);
+        zip.file(filename, blob);
       } catch (error) {
         console.error(`Error generating ${docType} document:`, error);
+        throw error;
       }
     }
 
-    return generatedDocs;
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipFilename = `Legal_Documents_${clientName}_${new Date().toISOString().split('T')[0]}.zip`;
+    
+    saveAs(zipBlob, zipFilename);
+  }
+
+  async generateAllDocuments(): Promise<string[]> {
+    const documentTypes = ['warrant', 'consent', 'demand', 'notice'];
+    await this.generateDocumentsAsZip(documentTypes);
+    return documentTypes;
   }
 }
