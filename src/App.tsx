@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ClientForm } from '@/components/ClientForm';
 import { DocumentStatus } from '@/components/DocumentStatus';
 import { Scale } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 function App() {
   const [generatedDocuments, setGeneratedDocuments] = useState<string[]>([]);
@@ -12,6 +13,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Toaster position="top-right" richColors />
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">

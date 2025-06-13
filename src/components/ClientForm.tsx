@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ClientDetails } from '@/types/client';
 import { DocumentGenerator } from '@/lib/documentGenerator';
 import { FileText, Download, User, Mail, Phone, CreditCard, Package } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ClientFormProps {
   onDocumentsGenerated: (documents: string[]) => void;
@@ -86,7 +87,7 @@ export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
     }
 
     if (selectedDocuments.length === 0) {
-      alert('Please select at least one document to generate.');
+      toast.error('Please select at least one document to generate.');
       return;
     }
 
@@ -98,14 +99,16 @@ export function ClientForm({ onDocumentsGenerated }: ClientFormProps) {
         // Generate single document
         await generator.generateDocument(selectedDocuments[0]);
         onDocumentsGenerated(selectedDocuments);
+        toast.success('Document generated successfully!');
       } else {
         // Generate multiple documents as ZIP
         await generator.generateDocumentsAsZip(selectedDocuments);
         onDocumentsGenerated(selectedDocuments);
+        toast.success(`${selectedDocuments.length} documents generated and packaged in ZIP!`);
       }
     } catch (error) {
       console.error('Error generating documents:', error);
-      alert('Error generating documents. Please try again.');
+      toast.error('Error generating documents. Please try again.');
     } finally {
       setIsGenerating(false);
     }
